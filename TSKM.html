@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TO DO LIST</title>
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <style>
+    /* --- Variáveis de Cor e Configurações Globais --- */
+    :root {
+        --primary-color: #f39c12; /* Laranja principal */
+        --primary-hover-color: #e67e22;
+        --secondary-color: #2ecc71; /* Verde para exportar/sucesso */
+        --secondary-hover-color: #27ae60;
+        --tertiary-color: #3498db; /* Azul para importar */
+        --tertiary-hover-color: #2980b9;
+        --info-color: #5bc0de; /* Azul claro para backup */
+        --info-hover-color: #31b0d5;
+        --background-color: #f4f7f9;
+        --surface-color: #ffffff;
+        --text-color: #34495e;
+        --border-color: #ecf0f1;
+        --shadow-color: rgba(0, 0, 0, 0.08);
+        --danger-color: #e74c3c;
+        --subtle-bg-color: #fffaf3;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+        background-color: var(--background-color);
+        color: var(--text-color);
+    }
+    
+    /* --- Layout Principal da Aplicação --- */
+    .app-layout {
+        display: grid;
+        grid-template-columns: 150px 1fr; /* Coluna fixa para sidebar, restante para conteúdo */
+        min-height: 100vh;
+    }
+    
+    /* --- Barra Lateral de Resumo --- */
+    .sidebar-container {
+        background-color: var(--surface-color);
+        padding: 20px;
+        border-right: 1px solid var(--border-color);
+    }
+    
+    .summary-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 1.0em;
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-bottom: 30px;
+    }
+    
+    .summary-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background-color: var(--subtle-bg-color);
+        padding: 10px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        border-left: 4px solid var(--primary-color);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    
+    .summary-card-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 600;
+        font-size: 0.7em;
+    }
+    
+    .summary-card-info i {
+        font-size: 1.0em;
+        color: var(--primary-color);
+    }
+    
+    .summary-count {
+        font-size: 0.7em;
+        font-weight: 700;
+        color: var(--text-color);
+    }
+
+    /* --- Container do Conteúdo Principal --- */
+    .main-content {
+        padding: 20px 40px;
+        overflow-y: auto;
+    }
+
+    .container {
+        max-width: 700px;
+        margin: 0 auto;
+        background-color: var(--surface-color);
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 6px 20px var(--shadow-color);
+    }
+    
+    header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    header h1 {
+        color: var(--primary-color);
+        font-size: 2.5em;
+        font-weight: 700;
+    }
+    
+    h2 {
+        border-bottom: 2px solid var(--primary-color);
+        padding-bottom: 10px;
+        margin: 40px 0 20px 0;
+        font-size: 1.2em;
+    }
+    
+    /* --- Grupo de Botões Principais --- */
+    .button-group {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 20px;
+        font-size: 1.0em;
+        font-weight: bold;
+        color: var(--surface-color);
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+    
+    .btn:hover { transform: translateY(-2px); }
+    .btn-primary { background-color: var(--primary-color); }
+    .btn-primary:hover { background-color: var(--primary-hover-color); }
+    .btn-export { background-color: var(--secondary-color); }
+    .btn-export:hover { background-color: var(--secondary-hover-color); }
+    .btn-import { background-color: var(--tertiary-color); }
+    .btn-import:hover { background-color: var(--tertiary-hover-color); }
+    .btn-backup { background-color: var(--info-color); }
+    .btn-backup:hover { background-color: var(--info-hover-color); }
+    
+    input[type="file"] {
+        display: none;
+    }
+
+    /* --- Formulário de Tarefas --- */
+    .task-form {
+        display: none;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        padding: 25px;
+        background-color: #fafafa;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+    }
+    
+    .form-group { display: flex; flex-direction: column; }
+    .full-width { grid-column: 1 / -1; }
+    .form-group label { margin-bottom: 8px; font-weight: 600; }
+    .form-group input { padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 1em; transition: border-color 0.3s ease, box-shadow 0.3s ease; }
+    .form-group input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.2); }
+    .task-form .btn { grid-column: 1 / -1; justify-content: center; background-color: var(--secondary-color); }
+    .task-form .btn:hover { background-color: var(--secondary-hover-color); }
+
+    /* --- Listas e Itens de Tarefa (Layout Compacto) --- */
+    .task-list { list-style: none; padding: 0; }
+    .task-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 20px; 
+        background-color: var(--surface-color);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        margin-bottom: 12px;
+        transition: box-shadow 0.2s ease, transform 0.2s ease;
+        flex-wrap: wrap;
+    }
+    .task-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px var(--shadow-color); }
+    .task-details { flex-grow: 1; }
+    .task-details strong {
+        font-size: 1.0em;
+        display: block;
+        margin-bottom: 8px;
+    }
+    .task-meta-group {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 15px;
+        font-size: 0.75em;
+        color: #7f8c8d;
+        margin-top: 5px;
+    }
+    .progress-group { gap: 8px; }
+    .task-meta-group span { display: flex; align-items: center; gap: 6px; }
+    .progress-bar-display { width: 120px; height: 8px; background-color: var(--border-color); border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background-color: var(--primary-color); transition: width 0.3s ease; }
+    .task-actions { display: flex; gap: 15px; margin-left: 20px; }
+    .task-actions i { font-size: 0.8em; cursor: pointer; padding: 5px; transition: color 0.3s ease, transform 0.2s ease; }
+    .task-actions i:hover { transform: scale(1.2); }
+    .icon-edit:hover { color: var(--primary-color); }
+    .icon-delete:hover { color: var(--danger-color); }
+    .icon-complete:hover { color: var(--secondary-color); }
+    .task-item.completed { opacity: 0.7; }
+    .task-item.completed .task-details strong { text-decoration: line-through; }
+
+    footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color); color: #95a5a6; font-size: 0.9em; }
+    
+    /* --- Responsividade --- */
+    @media (max-width: 1000px) {
+        .app-layout { grid-template-columns: 1fr; }
+        .sidebar-container { border-right: none; border-bottom: 1px solid var(--border-color); }
+        .main-content { padding: 20px; }
+    }
+    @media (max-width: 768px) {
+      .task-form { grid-template-columns: 1fr; }
+      .task-item { flex-direction: column; align-items: flex-start; gap: 15px; }
+      .task-actions { width: 100%; justify-content: flex-end; margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-layout">
+    <aside class="sidebar-container">
+        <div class="summary-header">
+            <i class="fa-solid fa-chart-pie"></i>
+            <span>Resumo</span>
+        </div>
+        <div class="summary-card">
+            <div class="summary-card-info"><i class="fa-solid fa-file-lines"></i><span>Em Aberto</span></div>
+            <span id="count-open" class="summary-count">0</span>
+        </div>
+        <div class="summary-card">
+            <div class="summary-card-info"><i class="fa-solid fa-clock"></i><span>Em Atraso</span></div>
+            <span id="count-overdue" class="summary-count">0</span>
+        </div>
+        <div class="summary-card">
+            <div class="summary-card-info"><i class="fa-solid fa-check-double"></i><span>Concluídas</span></div>
+            <span id="count-completed" class="summary-count">0</span>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="container">
+            <header>
+                <h1><i class="fa-solid fa-list-check"></i>  Gestão de Tarefas Pessoais</h1>
+            </header>
+            <div class="button-group">
+                <button class="btn btn-primary" id="toggleFormBtn"><i class="fas fa-plus"></i> Adicionar Tarefa</button>
+                <button class="btn btn-export" onclick="exportToExcel()"><i class="fas fa-file-excel"></i> Exportar Dados</button>
+                
+                <button class="btn btn-backup" onclick="exportDataToFile()"><i class="fas fa-download"></i> Backup</button>
+
+                <label for="import-file" class="btn btn-import"> <i class="fas fa-upload"></i> Backup </label>
+                <input type="file" id="import-file" accept=".json">
+
+            </div>
+            <form class="task-form" id="taskForm">
+                <div class="form-group full-width"><label for="descricao">Descrição</label><input type="text" id="descricao" placeholder="Ex: Desenvolver o relatório mensal"></div>
+                <div class="form-group"><label for="responsavel">Responsável</label><input type="text" id="responsavel" placeholder="Ex: João Silva"></div>
+                <div class="form-group"><label for="prioridade">Prioridade</label><input type="number" id="prioridade" placeholder="1" min="1" value="1"></div>
+                <div class="form-group"><label for="data">Data Prevista</label><input type="date" id="data"></div>
+                <div class="form-group"><label for="progresso">Progresso (%)</label><input type="number" id="progresso" placeholder="0" min="0" max="100" value="0"></div>
+                <button class="btn" type="submit"><i class="fas fa-save"></i> Salvar Tarefa</button>
+            </form>
+
+            <h2><i class="fas fa-list-ul"></i> Pendentes</h2>
+            <ul class="task-list" id="taskList"></ul>
+            <h2><i class="fas fa-clipboard-check"></i> Concluídas</h2>
+            <ul class="task-list" id="completedList"></ul>
+        <br><br><br><p>Offline, sem backend, sem servidor, sem banco de dados.</p>
+        <p>Os dados são salvos no localStorage do Navegador. Faça backups regulares.</p>
+        </div>
+
+        <footer>Feito com ❤ & IA — Open Source - 100% gratuito para uso, modificação e distribuição • TSKM Task Manager</footer>
+    </main>
+</div>
+
+  <script>
+    let editingIndex = null;
+    const toggleFormBtn = document.getElementById("toggleFormBtn");
+    const taskForm = document.getElementById("taskForm");
+    const importFileInput = document.getElementById("import-file");
+
+    toggleFormBtn.addEventListener("click", () => {
+      const isVisible = taskForm.style.display === "grid";
+      taskForm.style.display = isVisible ? "none" : "grid";
+      toggleFormBtn.innerHTML = isVisible 
+        ? '<i class="fas fa-plus"></i> ADICIONAR TAREFA' 
+        : '<i class="fas fa-times"></i> FECHAR';
+      if(isVisible) {
+          taskForm.reset();
+          editingIndex = null;
+      }
+    });
+    
+    taskForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        addTask();
+    });
+
+    // --- LÓGICA DE IMPORTAÇÃO E EXPORTAÇÃO (BACKUP) ---
+
+    function exportDataToFile() {
+        const tasks = getTasks();
+        if (tasks.length === 0) {
+            alert("Não há tarefas para fazer backup.");
+            return;
+        }
+
+        const dataStr = JSON.stringify(tasks, null, 4);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'tarefas_backup.json';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+
+    function handleImportFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const tasks = JSON.parse(e.target.result);
+                if (Array.isArray(tasks)) {
+                    saveTasks(tasks);
+                    renderTasks();
+                    alert('Backup importado com sucesso!');
+                } else {
+                    alert('Arquivo de backup inválido.');
+                }
+            } catch (error) {
+                alert('Erro ao ler o arquivo de backup. Verifique se o formato é JSON válido.');
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = null;
+    }
+
+    importFileInput.addEventListener('change', handleImportFile);
+
+    // --- LÓGICA PRINCIPAL DAS TAREFAS ---
+
+    function getTasks() { return JSON.parse(localStorage.getItem("tasks")) || []; }
+    
+    /**
+     * A função saveTasks agora SÓ salva no localStorage. O backup é manual.
+     */
+    function saveTasks(tasks) { 
+        localStorage.setItem("tasks", JSON.stringify(tasks)); 
+    }
+
+    function addTask() {
+      let descricao = document.getElementById("descricao").value;
+      let responsavel = document.getElementById("responsavel").value;
+      let prioridade = document.getElementById("prioridade").value;
+      let progresso = document.getElementById("progresso").value;
+      let data = document.getElementById("data").value;
+
+      if (!descricao || !responsavel || !data) {
+        alert("Preencha Descrição, Responsável e Data!");
+        return;
+      }
+
+      let tasks = getTasks();
+      const taskData = { descricao, responsavel, prioridade, progresso, data, concluida: false, horasGastas: "" };
+
+      if (editingIndex !== null) {
+        tasks[editingIndex] = { ...tasks[editingIndex], ...taskData };
+      } else {
+        tasks.push(taskData);
+      }
+      
+      editingIndex = null;
+      saveTasks(tasks); // Apenas salva localmente
+      renderTasks();
+      taskForm.reset();
+      taskForm.style.display = "none";
+      toggleFormBtn.innerHTML = '<i class="fas fa-plus"></i> ADICIONAR TAREFA';
+    }
+
+    function renderTasks() {
+      let tasks = getTasks();
+      let taskList = document.getElementById("taskList");
+      let completedList = document.getElementById("completedList");
+      taskList.innerHTML = "";
+      completedList.innerHTML = "";
+      
+      let openCount = 0;
+      let overdueCount = 0;
+      let completedCount = 0;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      tasks.forEach(task => {
+          if (task.concluida) {
+              completedCount++;
+          } else {
+              const dueDate = new Date(task.data + 'T00:00:00');
+              if (dueDate < today) {
+                  overdueCount++;
+              } else {
+                  openCount++;
+              }
+          }
+      });
+      
+      document.getElementById('count-open').textContent = openCount;
+      document.getElementById('count-overdue').textContent = overdueCount;
+      document.getElementById('count-completed').textContent = completedCount;
+
+      tasks.sort((a,b) => (a.prioridade || 99) - (b.prioridade || 99));
+
+      tasks.forEach((task, index) => {
+        let li = document.createElement("li");
+        li.className = "task-item" + (task.concluida ? " completed" : "");
+        const formattedDate = new Date(task.data + 'T00:00:00').toLocaleDateString('pt-BR');
+        
+        li.innerHTML = `
+          <div class="task-details">
+            <strong>${task.descricao}</strong>
+            <div class="task-meta-group">
+                <span><i class="fas fa-user"></i> ${task.responsavel}</span>
+                <span><i class="fas fa-flag"></i> Prioridade: ${task.prioridade}</span>
+                <span><i class="fas fa-calendar-alt"></i> ${formattedDate}</span>
+
+                <span>Progresso: <strong>${task.progresso}%</strong></span>
+                <div class="progress-bar-display">
+                    <div class="progress-fill" style="width:${task.progresso}%"></div>
+                </div>
+            </div>
+            ${task.horasGastas ? `<div class="task-meta-group"><span><i class="fas fa-stopwatch"></i> Horas gastas: ${task.horasGastas}</span></div>` : ""}
+          </div>
+          <div class="task-actions">
+            <i class="fas fa-pencil-alt icon-edit" onclick="editTask(${index})" title="Editar"></i>
+            <i class="fas fa-trash-alt icon-delete" onclick="deleteTask(${index})" title="Deletar"></i>
+            <i class="fas ${task.concluida ? 'fa-undo' : 'fa-check-circle'} icon-complete" onclick="completeTask(${index})" title="${task.concluida ? 'Restaurar' : 'Concluir'}"></i>
+          </div>
+        `;
+        
+        if (task.concluida) {
+          completedList.appendChild(li);
+        } else {
+          taskList.appendChild(li);
+        }
+      });
+    }
+
+    function editTask(index) {
+      let tasks = getTasks();
+      let task = tasks[index];
+      document.getElementById("descricao").value = task.descricao;
+      document.getElementById("responsavel").value = task.responsavel;
+      document.getElementById("prioridade").value = task.prioridade;
+      document.getElementById("progresso").value = task.progresso;
+      document.getElementById("data").value = task.data;
+      editingIndex = index;
+      taskForm.style.display = "grid";
+      toggleFormBtn.innerHTML = '<i class="fas fa-times"></i> FECHAR';
+      window.scrollTo(0, 0);
+    }
+
+    function deleteTask(index) {
+        if (!confirm('Tem certeza que deseja deletar esta tarefa?')) return;
+        let tasks = getTasks();
+        tasks.splice(index, 1);
+        saveTasks(tasks); // Apenas salva localmente
+        renderTasks();
+    }
+
+    function completeTask(index) {
+        let tasks = getTasks();
+        if (tasks[index].concluida) {
+            tasks[index].concluida = false;
+        } else {
+            let horas = prompt("Quantas horas foram gastas nesta tarefa?");
+            if (horas === null) return;
+            tasks[index].concluida = true;
+            tasks[index].horasGastas = horas || "";
+            tasks[index].progresso = 100;
+        }
+        saveTasks(tasks); // Apenas salva localmente
+        renderTasks();
+    }
+    
+    function exportToExcel() {
+      let tasks = getTasks();
+      if (tasks.length === 0) {
+          alert("Não há tarefas para exportar!");
+          return;
+      }
+      let data = tasks.map(task => ({
+        "Descrição": task.descricao, "Responsável": task.responsavel, "Prioridade": task.prioridade, "Progresso (%)": task.progresso,
+        "Data Prevista": task.data, "Concluída": task.concluida ? "Sim" : "Não", "Horas Gastas": task.horasGastas || ""
+      }));
+      let ws = XLSX.utils.json_to_sheet(data);
+      let wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Tarefas");
+      XLSX.writeFile(wb, "tarefas.xlsx");
+    }
+
+    // Renderização inicial
+    renderTasks();
+  </script>
+
+</body>
+</html>
